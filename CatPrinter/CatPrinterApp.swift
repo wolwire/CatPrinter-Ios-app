@@ -9,9 +9,10 @@ import SwiftUI
 
 @main
 struct CatPrinterApp: App {
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-        }
+  @StateObject private var modelManager = ModelManager()
+  var body: some Scene {
+    WindowGroup {
+      ContentView().environmentObject(modelManager)
     }
+  }
 }

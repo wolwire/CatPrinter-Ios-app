@@ -1,0 +1,70 @@
+# Xcode
+#
+# gitignore contributors: remember to update Global/Xcode.gitignore, Objective-C.gitignore & Swift.gitignore
+
+## User settings
+xcuserdata/
+
+## Compatibility
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.ouline
+*.pbuser
+*.xccheckout
+*.moved-aside
+*.xcsnapshots
+*.xcuserstate
+
+## DerivedData
+DerivedData/
+build/
+*.hmap
+*.ipa
+*.pkg
+
+## Obj-C/Swift specific
+*.profraw
+*.profdata
+*.gcno
+
+## Xcode Patch
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcodeproj/project.xcworkspace/
+!*.xcodeproj/xcshareddata/
+!*.xcodeproj/project.xcworkspace/
+*.xcworkspace/*
+!*.xcworkspace/contents.xcworkspacedata
+!*.xcworkspace/xcshareddata/
+!*.xcworkspace/xcshareddata/
+
+## Swift PM
+.build/
+
+## CocoaPods
+Pods/
+MapFile.txt
+
+## macOS
+.DS_Store
+
+## Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+## Bundle artifacts
+*.dSYM.zip
+*.dSYM
+
+## Playground
+timeline.xctimeline
+playground.xcworkspace
+
+# Project Specific
+# Assuming 'compiled' might be build artifacts if generated, but if they are model assets, keep them.
+# Uncomment the next line if 'compiled' contains large binary assets not to be tracked.
+CatPrinter/compiled/

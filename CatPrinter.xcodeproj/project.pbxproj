@@ -6,6 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		61009CFA2EE58E5100EF387F /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 61009CF92EE58E5100EF387F /* ZIPFoundation */; };
+		61FD70622EE1F30E00389BAC /* StableDiffusion in Frameworks */ = {isa = PBXBuildFile; productRef = 61FD70612EE1F30E00389BAC /* StableDiffusion */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		61C1710E2EDC535F007909FE /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -29,9 +34,22 @@
 		61C171172EDC535F007909FE /* CatPrinterUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CatPrinterUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		61DADC562EE40DB200622BCC /* Exceptions for "CatPrinter" folder in "CatPrinter" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 61C170FC2EDC535B007909FE /* CatPrinter */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		61C170FF2EDC535B007909FE /* CatPrinter */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				61DADC562EE40DB200622BCC /* Exceptions for "CatPrinter" folder in "CatPrinter" target */,
+			);
 			path = CatPrinter;
 			sourceTree = "<group>";
 		};
@@ -52,6 +70,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				61FD70622EE1F30E00389BAC /* StableDiffusion in Frameworks */,
+				61009CFA2EE58E5100EF387F /* ZIPFoundation in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +132,8 @@
 			);
 			name = CatPrinter;
 			packageProductDependencies = (
+				61FD70612EE1F30E00389BAC /* StableDiffusion */,
+				61009CF92EE58E5100EF387F /* ZIPFoundation */,
 			);
 			productName = CatPrinter;
 			productReference = 61C170FD2EDC535B007909FE /* CatPrinter.app */;
@@ -195,6 +217,11 @@
 			);
 			mainGroup = 61C170F42EDC535A007909FE;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				61FD70602EE1F30D00389BAC /* XCLocalSwiftPackageReference "../../ml-stable-diffusion" */,
+				61009CE82EE46CAF00EF387F /* XCRemoteSwiftPackageReference "swift-atomics" */,
+				61009CF82EE58E5100EF387F /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 61C170FE2EDC535B007909FE /* Products */;
 			projectDirPath = "";
@@ -325,6 +352,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
+				NEW_SETTING = "";
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
@@ -382,6 +410,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				NEW_SETTING = "";
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
@@ -395,10 +424,15 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"CatPrinter/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = Y9Y5PV64H5;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = CatPrinter/Info.plist;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Bluetooth is required";
+				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "Bluetooth is required";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Camera is required for OCR";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Allow access to photos";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -424,10 +458,15 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"CatPrinter/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = Y9Y5PV64H5;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = CatPrinter/Info.plist;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Bluetooth is required";
+				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "Bluetooth is required";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Camera is required for OCR";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Allow access to photos";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -558,6 +597,44 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		61FD70602EE1F30D00389BAC /* XCLocalSwiftPackageReference "../../ml-stable-diffusion" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../../ml-stable-diffusion";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		61009CE82EE46CAF00EF387F /* XCRemoteSwiftPackageReference "swift-atomics" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-atomics.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.3.0;
+			};
+		};
+		61009CF82EE58E5100EF387F /* XCRemoteSwiftPackageReference "ZIPFoundation" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/weichsel/ZIPFoundation";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.9.20;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		61009CF92EE58E5100EF387F /* ZIPFoundation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 61009CF82EE58E5100EF387F /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
+			productName = ZIPFoundation;
+		};
+		61FD70612EE1F30E00389BAC /* StableDiffusion */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = StableDiffusion;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 61C170F52EDC535B007909FE /* Project object */;
 }

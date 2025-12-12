@@ -8,12 +8,9 @@ struct BannerView: View {
     
     let onSendToPrint: (UIImage) -> Void
     
-    // Theme
-    let themeColor = Color(red: 1.0, green: 0.8, blue: 0.6) // Pastel Orange
-    
     var body: some View {
         ZStack {
-            Color(red: 1.0, green: 0.98, blue: 0.95)
+            AppDesignSystem.Colors.backgroundLight
                 .ignoresSafeArea()
             
             VStack(spacing: 20) {
@@ -47,31 +44,21 @@ struct BannerView: View {
                 .cornerRadius(20)
                 .shadow(radius: 2)
                 
-                // INPUT CARD
-                VStack(spacing: 16) {
-                    TextField("Enter text...", text: $bannerText)
-                        .font(.headline)
-                        .padding()
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(12)
-                        .environment(\.colorScheme, .light)
-                        .foregroundColor(.black)
-                    
-                    HStack {
-                        Text("Size")
-                            .foregroundColor(.black)
-                        Slider(value: $fontSize, in: 20...150, step: 1)
-                            .tint(themeColor)
-                        Text("\(Int(fontSize))")
-                            .foregroundColor(.black)
-                            .monospacedDigit()
+                AppCardWithPadding {
+                    VStack(spacing: AppDesignSystem.Spacing.md) {
+                        AppTextField("Enter text...", text: $bannerText)
+                        
+                        AppIntSlider(
+                            value: Binding(
+                                get: { Int(fontSize) },
+                                set: { fontSize = Double($0) }
+                            ),
+                            in: 20...150,
+                            label: "Size",
+                            color: AppDesignSystem.Colors.pastelOrange
+                        )
                     }
                 }
-                .padding()
-                .background(Color.white)
-                .environment(\.colorScheme, .light)
-                .cornerRadius(20)
-                .shadow(radius: 2)
                 
                 Spacer()
                 

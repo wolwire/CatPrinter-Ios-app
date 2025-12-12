@@ -8,9 +8,6 @@ struct TodoView: View {
     
     let onSendToPrint: (UIImage) -> Void
     
-    // Theme
-    let themeColor = Color(red: 0.6, green: 0.9, blue: 0.8) // Pastel Teal/Blue
-    
     struct TodoItem: Identifiable {
         let id = UUID()
         var text: String
@@ -19,7 +16,7 @@ struct TodoView: View {
 
     var body: some View {
         ZStack {
-            Color(red: 0.96, green: 0.98, blue: 0.98)
+            AppDesignSystem.Colors.backgroundLight
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
@@ -28,20 +25,13 @@ struct TodoView: View {
                 ScrollView {
                     VStack(spacing: 20) {
                         
-                        // INPUT CARD
-                        VStack(spacing: 12) {
-                            Text("New Task")
-                                .font(.subheadline)
-                                .foregroundColor(.gray)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                    // INPUT CARD
+                    AppCardWithPadding {
+                        VStack(spacing: AppDesignSystem.Spacing.md) {
+                            AppSectionHeader("New Task")
                             
                             HStack {
-                                TextField("Buy cat food...", text: $newItemText)
-                                    .padding()
-                                    .background(Color.gray.opacity(0.05))
-                                    .cornerRadius(12)
-                                    .environment(\.colorScheme, .light)
-                                    .foregroundColor(.black)
+                                AppTextField("Buy cat food...", text: $newItemText)
                                 
                                 Button {
                                     addItem()
@@ -50,16 +40,13 @@ struct TodoView: View {
                                         .font(.headline)
                                         .foregroundColor(.white)
                                         .frame(width: 44, height: 44)
-                                        .background(themeColor)
-                                        .cornerRadius(12)
+                                        .background(AppDesignSystem.Colors.pastelTeal)
+                                        .cornerRadius(AppDesignSystem.CornerRadius.medium)
                                 }
                                 .disabled(newItemText.isEmpty)
                             }
                         }
-                        .padding()
-                        .background(Color.white)
-                        .cornerRadius(20)
-                        .shadow(radius: 2)
+                    }
                         
                         // LIST CARD
                         if !todoItems.isEmpty {
@@ -71,7 +58,7 @@ struct TodoView: View {
                                         } label: {
                                             Image(systemName: item.isDone ? "checkmark.circle.fill" : "circle")
                                                 .font(.title2)
-                                                .foregroundColor(item.isDone ? themeColor : .gray)
+                                                .foregroundColor(item.isDone ? AppDesignSystem.Colors.pastelTeal : .gray)
                                         }
                                         
                                         Text(item.text)

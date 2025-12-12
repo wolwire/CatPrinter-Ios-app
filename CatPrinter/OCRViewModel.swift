@@ -28,8 +28,9 @@ class OCRViewModel: NSObject, ObservableObject, VNDocumentCameraViewControllerDe
                 text += await recognizeText(from: img) + "\n"
             }
 
+            let finalText = text
             await MainActor.run {
-                let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                let cleaned = finalText.trimmingCharacters(in: .whitespacesAndNewlines)
                 self.scannedText = cleaned.isEmpty ? "No text found." : cleaned
             }
         }

@@ -1,8 +1,8 @@
-import CoreBluetooth
+@preconcurrency import CoreBluetooth
 import Foundation
 
 /// PrinterManager: encodes commands (ported from Python cmds.py) and handles BLE communication
-final class PrinterManager: NSObject, ObservableObject {
+final class PrinterManager: NSObject, ObservableObject, @unchecked Sendable {
   // MARK: - UUIDs
   private let possibleServiceUUIDs = [CBUUID(string: "AE30"), CBUUID(string: "AF30")]
   private let txCharacteristicUUID = CBUUID(string: "AE01")
@@ -272,7 +272,7 @@ final class PrinterManager: NSObject, ObservableObject {
       self.isScanning = false
     }
 
-    var peripheral = p.peripheral
+        let peripheral = p.peripheral
     targetPeripheral = peripheral
     peripheral.delegate = self
 

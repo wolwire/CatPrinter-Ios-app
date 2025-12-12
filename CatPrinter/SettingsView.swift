@@ -8,11 +8,11 @@ struct SettingsView: View {
 
   var body: some View {
       ZStack {
-          Color(red: 0.98, green: 0.98, blue: 0.99)
+          AppDesignSystem.Colors.backgroundLight
               .ignoresSafeArea()
           
           ScrollView {
-              VStack(spacing: 24) {
+              VStack(spacing: 20) {
                   
                   // Header
                   HStack {
@@ -25,8 +25,6 @@ struct SettingsView: View {
                           .foregroundColor(themeColor)
                           .opacity(0.5)
                   }
-                  .padding(.horizontal)
-                  .padding(.top)
                   
                   // PRINTER CARD
                   VStack(alignment: .leading, spacing: 16) {
@@ -68,7 +66,6 @@ struct SettingsView: View {
                   .background(Color.white)
                   .cornerRadius(20)
                   .shadow(color: Color.black.opacity(0.05), radius: 4)
-                  .padding(.horizontal)
                   
                   // APP INFO CARD
                   VStack(alignment: .leading, spacing: 16) {
@@ -105,13 +102,13 @@ struct SettingsView: View {
                   .background(Color.white)
                   .cornerRadius(20)
                   .shadow(color: Color.black.opacity(0.05), radius: 4)
-                  .padding(.horizontal)
                   
                   Spacer()
               }
+              .padding()
           }
-      }
-      .navigationTitle("") // Hide default title
-      .navigationBarTitleDisplayMode(.inline)
+          .navigationTitle("Settings")
+          .navigationBarTitleDisplayMode(.large)
+          .background(AppDesignSystem.Colors.backgroundLight.ignoresSafeArea())
   }
 }

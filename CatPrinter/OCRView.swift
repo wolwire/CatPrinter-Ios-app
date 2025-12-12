@@ -12,11 +12,11 @@ struct OCRView: View {
     
     var body: some View {
         ZStack {
-            Color(red: 0.97, green: 0.98, blue: 1.0)
+            AppDesignSystem.Colors.backgroundLight
                 .ignoresSafeArea()
             
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: 20) {
                     
                     // CARD: Scanned Text
                     VStack(alignment: .leading, spacing: 10) {
@@ -114,6 +114,8 @@ struct OCRView: View {
                 }
                 .padding()
             }
+            .navigationTitle("OCR")
+            .background(AppDesignSystem.Colors.backgroundLight.ignoresSafeArea())
         }
         .sheet(isPresented: $showScanner) {
             DocumentScannerView(viewModel: viewModel)

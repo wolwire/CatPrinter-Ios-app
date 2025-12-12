@@ -11,11 +11,11 @@ struct ConnectionView: View {
   var body: some View {
       ZStack {
           // BACKGROUND
-          Color(red: 0.98, green: 0.98, blue: 0.99)
+          AppDesignSystem.Colors.backgroundLight
               .ignoresSafeArea()
           
           ScrollView {
-              VStack(spacing: 30) {
+              VStack(spacing: 20) {
                   
                   // STATUS HEADER
                   VStack(spacing: 16) {
@@ -33,7 +33,6 @@ struct ConnectionView: View {
                           .font(.headline)
                           .foregroundColor(.black)
                   }
-                  .padding(.top, 40)
                   
                   // SCAN BUTTON
                   Button {
@@ -82,7 +81,10 @@ struct ConnectionView: View {
                       Spacer()
                   }
               }
+              .padding()
           }
+          .navigationTitle("Connection")
+          .background(AppDesignSystem.Colors.backgroundLight.ignoresSafeArea())
       }
   }
 }

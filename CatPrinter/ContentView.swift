@@ -18,6 +18,9 @@ enum WorkflowDestination: Hashable {
   case settings
   case todo
   case banner
+  case templates
+  case inpainting
+  case styleTransfer
 }
 
 struct BannerModel: Identifiable {
@@ -30,15 +33,9 @@ struct BannerModel: Identifiable {
 
 // MARK: - Constants & Theme
 
-struct KawaiiTheme {
-    static let pastelBlue = Color(red: 0.6, green: 0.8, blue: 1.0)
-    static let pastelPink = Color(red: 1.0, green: 0.7, blue: 0.75)
-    static let pastelPurple = Color(red: 0.8, green: 0.7, blue: 1.0)
-    static let pastelMint = Color(red: 0.6, green: 0.9, blue: 0.7)
-    static let pastelYellow = Color(red: 1.0, green: 0.9, blue: 0.6)
-    
-    static let textDark = Color(red: 0.3, green: 0.3, blue: 0.3)
-}
+// KawaiiTheme now references the centralized AppDesignSystem
+typealias KawaiiTheme = AppDesignSystem.Colors
+
 
 struct ContentView: View {
 
@@ -93,64 +90,71 @@ struct ContentView: View {
                   .ignoresSafeArea()
                   .animation(.easeInOut, value: currentAccentColor)
               
-              VStack(spacing: 0) {
-                  
-                  // HEADER ("Switch Device")
-                  HStack {
-                      Button {
-                          path.append(WorkflowDestination.connect)
-                      } label: {
-                          HStack {
-                              Image(systemName: "arrow.triangle.2.circlepath")
-                              Text(printer.isConnected ? (printer.connectedPrinterName ?? "My Printer") : "Switch Device")
-                                  .fontWeight(.bold)
-                          }
-                          .foregroundColor(KawaiiTheme.textDark)
-                      }
+              // BACKGROUND (Dynamic Accent)
+              currentAccentColor
+                  .ignoresSafeArea()
+                  .animation(.easeInOut, value: currentAccentColor)
+              
+              // MAIN SCROLLVIEW (Everything scrolls now)
+              ScrollView {
+                  VStack(spacing: 0) {
                       
-                      Spacer()
-                      
-                      Text("+ My Device")
-                          .foregroundColor(KawaiiTheme.textDark.opacity(0.8))
-                          .font(.subheadline)
-                  }
-                  .padding()
-                  
-                  // BANNER CAROUSEL
-                  TabView(selection: $bannerSelection) {
-                      ForEach(0..<banners.count, id: \.self) { index in
-                          let banner = banners[index]
-                          HStack {
-                              VStack(alignment: .leading, spacing: 8) {
-                                  Text(banner.title)
-                                      .font(.system(size: 24, weight: .heavy, design: .rounded))
-                                      .foregroundColor(KawaiiTheme.textDark)
-                                  Text(banner.subtitle)
-                                      .font(.subheadline)
-                                      .foregroundColor(KawaiiTheme.textDark.opacity(0.8))
-                                  
-                                  Spacer()
+                      // HEADER ("Switch Device")
+                      HStack {
+                          Button {
+                              path.append(WorkflowDestination.connect)
+                          } label: {
+                              HStack {
+                                  Image(systemName: "arrow.triangle.2.circlepath")
+                                  Text(printer.isConnected ? (printer.connectedPrinterName ?? "My Printer") : "Switch Device")
+                                      .fontWeight(.bold)
                               }
-                              Spacer()
-                              Image(systemName: banner.imageSystemName)
-                                  .font(.system(size: 80))
-                                  .foregroundColor(Color.white.opacity(0.4))
-                                  .rotationEffect(.degrees(-15))
+                              .foregroundColor(KawaiiTheme.textDark)
+                .foregroundColor(KawaiiTheme.textDark)
                           }
-                          .padding(24)
-                          .tag(index)
+                          
+                          Spacer()
+                          
+Text("+ My Device")
+    .foregroundColor(KawaiiTheme.textDark.opacity(0.8))
+    .font(.subheadline)
                       }
-                  }
-                  .tabViewStyle(PageTabViewStyle(indexDisplayMode: .always))
-                  .frame(height: 180)
-                  .onChange(of: bannerSelection) { _, newValue in
-                      withAnimation {
-                          currentAccentColor = banners[newValue].color
+                      .padding()
+                      
+                      // BANNER CAROUSEL
+                      TabView(selection: $bannerSelection) {
+                          ForEach(0..<banners.count, id: \.self) { index in
+                              let banner = banners[index]
+                              HStack {
+                                  VStack(alignment: .leading, spacing: 8) {
+Text(banner.title)
+    .font(.system(size: 24, weight: .heavy, design: .rounded))
+    .foregroundColor(KawaiiTheme.textDark)
+Text(banner.subtitle)
+    .font(.subheadline)
+    .foregroundColor(KawaiiTheme.textDark.opacity(0.8))
+                                      
+                                      Spacer()
+                                  }
+                                  Spacer()
+                                  Image(systemName: banner.imageSystemName)
+                                      .font(.system(size: 80))
+                                      .foregroundColor(Color.white.opacity(0.4))
+                                      .rotationEffect(.degrees(-15))
+                              }
+                              .padding(24)
+                              .tag(index)
+                          }
                       }
-                  }
-                  
-                  // WHITE SHEET CONTENT
-                  ScrollView {
+                      .tabViewStyle(PageTabViewStyle(indexDisplayMode: .always))
+                      .frame(height: 180)
+                      .onChange(of: bannerSelection) { _, newValue in
+                          withAnimation {
+                              currentAccentColor = banners[newValue].color
+                          }
+                      }
+                      
+                      // WHITE SHEET CONTENT
                       VStack(alignment: .leading, spacing: 20) {
                           
                           // SECTION HEADER
@@ -159,9 +163,9 @@ struct ContentView: View {
                                   .fill(currentAccentColor)
                                   .frame(width: 4, height: 16)
                                   .cornerRadius(2)
-                              Text("Tool")
-                                  .font(.headline)
-                                  .foregroundColor(KawaiiTheme.textDark)
+Text("Create")
+    .font(.headline)
+    .foregroundColor(currentAccentColor)
                           }
                           .padding(.top, 24)
                           .padding(.horizontal)
@@ -173,7 +177,7 @@ struct ContentView: View {
                               KawaiiGridItem(
                                   title: "Photo Print",
                                   icon: "photo.fill",
-                                  accentColor: KawaiiTheme.pastelPink, // Fixed color for item
+                                  accentColor: KawaiiTheme.pastelPink,
                                   destination: .print
                               )
                               
@@ -185,20 +189,36 @@ struct ContentView: View {
                                   destination: .scanner
                               )
                               
-                              // AI
+                              // AI PAINT (Txt2Img)
                               KawaiiGridItem(
                                   title: "AI Paint",
-                                  icon: "paintbrush.fill", // AI
-                                  accentColor: KawaiiTheme.pastelPurple,
+                                  icon: "paintbrush.fill",
+                                  accentColor: KawaiiTheme.pastelYellow,
                                   destination: .aiTools
                               )
                               
-                              // SETTINGS (using Settings icon but named "Templates" or "Other" as generic filler if desired, but keeping functionality)
+                              // AI INPAINTING (Magic Edit)
                               KawaiiGridItem(
-                                  title: "Settings",
-                                  icon: "gearshape.fill",
+                                  title: "Magic Edit",
+                                  icon: "wand.and.stars",
+                                  accentColor: KawaiiTheme.pastelMint,
+                                  destination: .inpainting
+                              )
+                              
+                              // AI STYLE TRANSFER
+                              KawaiiGridItem(
+                                  title: "Style Transfer",
+                                  icon: "paintpalette.fill", // 
+                                  accentColor: KawaiiTheme.pastelPurple, // Grouping AI tools with purple
+                                  destination: .styleTransfer
+                              )
+                              
+                              // TEMPLATES
+                              KawaiiGridItem(
+                                  title: "Templates",
+                                  icon: "square.dashed",
                                   accentColor: KawaiiTheme.pastelYellow,
-                                  destination: .settings
+                                  destination: .templates
                               )
                           }
                           .padding(.horizontal)
@@ -210,9 +230,9 @@ struct ContentView: View {
                                   .fill(currentAccentColor)
                                   .frame(width: 4, height: 16)
                                   .cornerRadius(2)
-                              Text("Other")
-                                  .font(.headline)
-                                  .foregroundColor(KawaiiTheme.textDark)
+Text("Other")
+    .font(.headline)
+    .foregroundColor(currentAccentColor)
                           }
                           .padding(.top, 24)
                           .padding(.horizontal)
@@ -221,7 +241,7 @@ struct ContentView: View {
                           LazyVGrid(columns: columns, spacing: 16) {
                               KawaiiGridItem(
                                   title: "Banner",
-                                  icon: "rectangle.picture.frame.fill",
+                                  icon: "photo.on.rectangle.angled",
                                   accentColor: KawaiiTheme.pastelMint,
                                   destination: .banner
                               )
@@ -232,104 +252,199 @@ struct ContentView: View {
                                   accentColor: KawaiiTheme.pastelBlue,
                                   destination: .todo
                               )
+
+                              KawaiiGridItem(
+                                  title: "Settings",
+                                  icon: "gearshape.fill",
+                                  accentColor: Color.gray,
+                                  destination: .settings
+                              )
                           }
                           .padding(.horizontal)
                           
                           Spacer(minLength: 100)
                       }
                       .background(Color.white)
+                      // ROUNDED TOP CORNERS for the white sheet part
+                      .cornerRadius(30, corners: [.topLeft, .topRight])
                   }
-                  .background(Color.white)
-                  // ROUNDED TOP CORNERS
-                  .cornerRadius(30, corners: [.topLeft, .topRight])
-                  .ignoresSafeArea(edges: .bottom)
               }
+              .ignoresSafeArea(edges: .bottom) // Make scrollview go to bottom
+
           }
-          .navigationDestination(for: WorkflowDestination.self) { destination in
+            .navigationDestination(for: WorkflowDestination.self) { destination in
               // ... SWITCH (Same as before) ...
               switch destination {
               case .print:
-                  PrintView(
-                    selectedItem: $selectedItem,
-                    uiImage: $uiImage,
-                    previewImage: $previewImage,
-                    contrast: $contrast,
-                    brightness: $brightness,
-                    energyValue: $energyValue,
-                    algorithm: $algorithm,
-                    showingAlert: $showingAlert,
-                    alertMessage: $alertMessage,
-                    themeColor: .blue,
-                    onGeneratePreview: { await generatePreview() },
-                    onSelectItem: { item in await loadSelectedItem(item) },
-                    onPrintPreview: { algorithmName in await printPreview(named: algorithmName) },
-                    rotateLeft: { rotateLeft() },
-                    rotateRight: { rotateRight() }
-                  )
-                  .navigationTitle("Print")
+                PrintView(
+                selectedItem: $selectedItem,
+                uiImage: $uiImage,
+                previewImage: $previewImage,
+                contrast: $contrast,
+                brightness: $brightness,
+                energyValue: $energyValue,
+                algorithm: $algorithm,
+                showingAlert: $showingAlert,
+                alertMessage: $alertMessage,
+                themeColor: .blue,
+                onGeneratePreview: { await generatePreview() },
+                onSelectItem: { item in await loadSelectedItem(item) },
+                onPrintPreview: { algorithmName in await printPreview(named: algorithmName) },
+                rotateLeft: { rotateLeft() },
+                rotateRight: { rotateRight() }
+                )
+                .toolbar {
+                  ToolbarItem(placement: .principal) {
+                    Text("Print")
+                      .font(.headline)
+                      .foregroundColor(currentAccentColor)
+                  }
+                }
 
               case .connect:
-                  ConnectionView(
-                    showingAlert: $showingAlert,
-                    alertMessage: $alertMessage
-                  )
-                  .navigationTitle("Connect")
+                ConnectionView(
+                showingAlert: $showingAlert,
+                alertMessage: $alertMessage
+                )
+                .toolbar {
+                  ToolbarItem(placement: .principal) {
+                    Text("Connect")
+                      .font(.headline)
+                      .foregroundColor(currentAccentColor)
+                  }
+                }
 
               case .aiTools:
-                  Group {
-                    if modelManager.isPipelineReady {
-                      CreateView(
-                        themeColor: Color.blue,
-                        onSendToPrint: { img in
-                          self.uiImage = img
-                          self.previewImage = nil
-                          path = NavigationPath([WorkflowDestination.print])
-                          Task { await generatePreview() }
-                        }
-                      )
-                    } else {
-                      VStack {
-                        ProgressView().scaleEffect(1.5)
-                        Text("Loading AI model… please wait").foregroundColor(.secondary)
-                      }
-                      .frame(maxWidth: .infinity, maxHeight: .infinity)
-                      .background(Color.gray.opacity(0.1))
-                      .cornerRadius(12)
-                    }
+                Group {
+                if modelManager.isPipelineReady || modelManager.modelMissing {
+                  CreateView(
+                  themeColor: Color.blue,
+                  onSendToPrint: { img in
+                    self.uiImage = img
+                    self.previewImage = nil
+                    path = NavigationPath([WorkflowDestination.print])
+                    Task { await generatePreview() }
                   }
-                  .navigationTitle("AI Creation")
+                  )
+                } else {
+                  VStack {
+                  ProgressView().scaleEffect(1.5)
+                  Text("Loading AI model… please wait").foregroundColor(.secondary)
+                  }
+                  .frame(maxWidth: .infinity, maxHeight: .infinity)
+                  .background(Color.gray.opacity(0.1))
+                  .cornerRadius(12)
+                }
+                }
+                .toolbar {
+                  ToolbarItem(placement: .principal) {
+                    Text("AI Creation")
+                      .font(.headline)
+                      .foregroundColor(currentAccentColor)
+                  }
+                }
 
               case .scanner:
-                  OCRView(onSendToPrint: { img in
-                      self.uiImage = img
-                      self.previewImage = nil
-                      path = NavigationPath([WorkflowDestination.print])
-                      Task { await generatePreview() }
-                    }
-                  )
-                  .navigationTitle("Scanner")
+                OCRView(onSendToPrint: { img in
+                  self.uiImage = img
+                  self.previewImage = nil
+                  path = NavigationPath([WorkflowDestination.print])
+                  Task { await generatePreview() }
+                }
+                )
+                .toolbar {
+                  ToolbarItem(placement: .principal) {
+                    Text("Magic Edit")
+                      .font(.headline)
+                      .foregroundColor(currentAccentColor)
+                  }
+                }
                   
               case .settings:
-                  SettingsView()
-                      .navigationTitle("Settings")
+                SettingsView()
+                  .toolbar {
+                    ToolbarItem(placement: .principal) {
+                      Text("Settings")
+                        .font(.headline)
+                        .foregroundColor(currentAccentColor)
+                    }
+                  }
                       
               case .todo:
-                  TodoView(onSendToPrint: { img in
-                      self.uiImage = img
-                      self.previewImage = nil
-                      path = NavigationPath([WorkflowDestination.print])
-                      Task { await generatePreview() }
-                  })
+                TodoView(onSendToPrint: { img in
+                  self.uiImage = img
+                  self.previewImage = nil
+                  path = NavigationPath([WorkflowDestination.print])
+                  Task { await generatePreview() }
+                })
               
               case .banner:
-                  BannerView(onSendToPrint: { img in
-                      self.uiImage = img
-                      self.previewImage = nil
-                      path = NavigationPath([WorkflowDestination.print])
-                      Task { await generatePreview() }
-                  })
+                BannerView(onSendToPrint: { img in
+                  self.uiImage = img
+                  self.previewImage = nil
+                  path = NavigationPath([WorkflowDestination.print])
+                  Task { await generatePreview() }
+                })
+                .toolbar {
+                  ToolbarItem(placement: .principal) {
+                    Text("Magic Edit")
+                      .font(.headline)
+                      .foregroundColor(currentAccentColor)
+                  }
+                }
+                  
+              case .templates:
+                TemplatesView(onSendToPrint: { img in
+                  self.uiImage = img
+                  self.previewImage = nil
+                  path = NavigationPath([WorkflowDestination.print])
+                  Task { await generatePreview() }
+                })
+                .toolbar {
+                  ToolbarItem(placement: .principal) {
+                    Text("Magic Edit")
+                      .font(.headline)
+                      .foregroundColor(currentAccentColor)
+                  }
+                }
+                  
+              case .inpainting:
+                InpaintingView(
+                  themeColor: KawaiiTheme.pastelMint,
+                  onSendToPrint: { img in
+                    self.uiImage = img
+                    self.previewImage = nil
+                    path = NavigationPath([WorkflowDestination.print])
+                    Task { await generatePreview() }
+                  }
+                )
+                .toolbar {
+                  ToolbarItem(placement: .principal) {
+                    Text("Magic Edit")
+                      .font(.headline)
+                      .foregroundColor(currentAccentColor)
+                  }
+                }
+                  
+              case .styleTransfer:
+                StyleTransferView(
+                  themeColor: KawaiiTheme.pastelPurple,
+                  onSendToPrint: { img in
+                    self.uiImage = img
+                    self.previewImage = nil
+                    path = NavigationPath([WorkflowDestination.print])
+                    Task { await generatePreview() }
+                  }
+                )
+                .toolbar {
+                  ToolbarItem(placement: .principal) {
+                    Text("Magic Edit")
+                      .font(.headline)
+                      .foregroundColor(currentAccentColor)
+                  }
+                }
               }
-          }
+            }
       }
       .environmentObject(printer)
   }
@@ -430,7 +545,7 @@ struct KawaiiGridItem: View {
                 Text(title)
                     .font(.subheadline)
                     .fontWeight(.medium)
-                    .foregroundColor(KawaiiTheme.textDark)
+                          .foregroundColor(accentColor)
                 
                 Spacer()
             }

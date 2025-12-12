@@ -68,3 +68,4 @@ playground.xcworkspace
 # Assuming 'compiled' might be build artifacts if generated, but if they are model assets, keep them.
 # Uncomment the next line if 'compiled' contains large binary assets not to be tracked.
 CatPrinter/compiled/
+test_results/

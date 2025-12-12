@@ -15,14 +15,11 @@ struct CreateView: View {
     @State private var isNegativePromptExpanded = false
 
     @State private var generatedImage: UIImage?
+    @State private var showZoomModal = false
     
-    // Theme
-    let pastelPurple = Color(red: 0.8, green: 0.7, blue: 1.0)
-    let paperColor = Color(red: 0.99, green: 0.99, blue: 1.0)
-
     var body: some View {
         ZStack {
-            Color(red: 0.98, green: 0.97, blue: 1.0) // Very light purple
+            AppDesignSystem.Colors.backgroundLight
                 .ignoresSafeArea()
             
             if modelManager.modelMissing {
@@ -33,92 +30,102 @@ struct CreateView: View {
                 ScrollView {
                     VStack(spacing: 20) {
                         
+                        // ------------------------
                         // PROMPT CARD
+                        // ------------------------
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Describe your idea")
-                                .font(.headline)
-                                .foregroundColor(.purple.opacity(0.8))
+                            AppSectionHeader("Describe your idea",
+                                             color: AppDesignSystem.Colors.pastelPurple)
                             
-                            TextEditor(text: $promptText)
-                                .scrollContentBackground(.hidden)
-                                .padding()
-                                .background(paperColor)
-                                .cornerRadius(12)
-                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(pastelPurple, lineWidth: 1))
-                                .frame(height: 100)
-                                .shadow(color: pastelPurple.opacity(0.1), radius: 4)
+                            AppTextEditor(text: $promptText, height: 100)
+                                .overlay(RoundedRectangle(cornerRadius: 16)
+                                    .stroke(AppDesignSystem.Colors.pastelPurple, lineWidth: 1))
+                                .shadow(color: AppDesignSystem.Colors.pastelPurple.opacity(0.1),
+                                        radius: 4)
                             
                             DisclosureGroup(isExpanded: $isNegativePromptExpanded) {
-                                TextEditor(text: $negativePrompt)
-                                    .scrollContentBackground(.hidden)
-                                    .padding()
-                                    .background(paperColor)
-                                    .cornerRadius(12)
-                                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.2), lineWidth: 1))
-                                    .frame(height: 80)
+                                AppTextEditor(text: $negativePrompt, height: 80)
                             } label: {
                                 Text("Negative Prompt (Optional)")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
-                            .tint(.purple)
+                            .tint(AppDesignSystem.Colors.pastelPurple)
                         }
                         .padding()
                         .background(Color.white)
-                        .environment(\.colorScheme, .light) // Force dark text
+                        .environment(\.colorScheme, .light)
                         .cornerRadius(20)
                         .shadow(radius: 2)
                         
+                        
+                        // ------------------------
                         // CONFIG CARD
+                        // ------------------------
                         VStack(alignment: .leading, spacing: 16) {
-                            Text("Settings")
-                                .font(.subheadline)
-                                .foregroundColor(.gray)
+                            AppSettingsHeader("Settings")
                             
-                            HStack {
-                                Text("Steps")
-                                    .foregroundColor(.black)
-                                Spacer()
-                                Text("\(Int(stepCount))").bold().foregroundColor(.purple)
+                            VStack(spacing: AppDesignSystem.Spacing.lg) {
+                                
+                                AppSettingsSlider(
+                                    value: $stepCount,
+                                    in: 10...70,
+                                    step: 1,
+                                    label: "Steps",
+                                    color: AppDesignSystem.Colors.pastelPurple,
+                                    valueFormatter: { "\(Int($0))" }
+                                )
+                                
+                                AppSettingsSlider(
+                                    value: $guidanceScale,
+                                    in: 1...20,
+                                    step: 0.1,
+                                    label: "Guidance",
+                                    color: AppDesignSystem.Colors.pastelPurple
+                                )
+                                
+                                AppConfigTextField("Seed (Random if empty)",
+                                                   text: $seed)
+                                    .keyboardType(.numberPad)
                             }
-                            Slider(value: $stepCount, in: 10...70, step: 1).tint(pastelPurple)
-                            
-                            HStack {
-                                Text("Guidance")
-                                    .foregroundColor(.black)
-                                Spacer()
-                                Text(String(format: "%.1f", guidanceScale)).bold().foregroundColor(.purple)
-                            }
-                            Slider(value: $guidanceScale, in: 1...20, step: 0.1).tint(pastelPurple)
-                            
-                            TextField("Seed (Random if empty)", text: $seed)
-                                .keyboardType(.numberPad)
-                                .foregroundColor(.black)
-                                .padding()
-                                .background(Color.gray.opacity(0.05))
-                                .cornerRadius(10)
                         }
                         .padding()
                         .background(Color.white)
-                        .environment(\.colorScheme, .light) // Force dark text
+                        .environment(\.colorScheme, .light)
                         .cornerRadius(20)
                         .shadow(radius: 2)
                         
-                        // ACTION
+                        
+                        // ------------------------
+                        // GENERATION PROGRESS
+                        // ------------------------
+                        if modelManager.isGenerating {
+                            VStack {
+                                ProgressView(value: modelManager.generationProgress, total: 1.0)
+                                    .padding(.horizontal)
+                                    .tint(.purple)
+                                
+                                Text("Generating: \(Int(modelManager.generationProgress * 100))%")
+                                    .font(.caption)
+                                    .foregroundColor(.purple)
+                            }
+                        }
+                        
+                        
+                        // ------------------------
+                        // ACTION BUTTON
+                        // ------------------------
                         Button {
                             Task { await generate() }
                         } label: {
-                            HStack {
-                                if modelManager.isGenerating { ProgressView().tint(.white) }
-                                Text(modelManager.isGenerating ? "Painting..." : "Generate Magic")
-                            }
-                            .font(.headline)
-                            .foregroundColor(.black.opacity(0.8))
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 55)
-                            .background(pastelPurple)
-                            .cornerRadius(27.5)
-                            .shadow(color: pastelPurple.opacity(0.5), radius: 8, y: 4)
+                            Text(modelManager.isGenerating ? "Painting..." : "Generate Magic")
+                                .font(.headline)
+                                .foregroundColor(AppDesignSystem.Colors.textBlack.opacity(0.8))
+                                .frame(maxWidth: .infinity, minHeight: 55)
+                                .background(AppDesignSystem.Colors.pastelPurple)
+                                .cornerRadius(27.5)
+                                .shadow(color: AppDesignSystem.Colors.pastelPurple.opacity(0.5),
+                                        radius: 8, y: 4)
                         }
                         .disabled(modelManager.isGenerating)
                         
@@ -127,14 +134,24 @@ struct CreateView: View {
                                 .foregroundColor(.red)
                         }
                         
-                        // RESULT
+                        
+                        // ------------------------
+                        // RESULT IMAGE (FIXED!)
+                        // ------------------------
                         if let img = generatedImage {
                             VStack(spacing: 16) {
+                                
                                 Image(uiImage: img)
                                     .resizable()
                                     .scaledToFit()
                                     .cornerRadius(16)
                                     .shadow(radius: 5)
+                                    .onTapGesture { showZoomModal = true }
+                                        .fullScreenCover(isPresented: $showZoomModal) {
+                                            if let img = generatedImage {
+                                                ZoomImageModal(image: img, isPresented: $showZoomModal)
+                                            }
+                                        }
                                 
                                 Button {
                                     onSendToPrint(img)
@@ -163,11 +180,15 @@ struct CreateView: View {
         }
     }
     
-    // Logic (Identical to before)
+    
+    // MARK: - Generation Logic
     private func generate() async {
         guard !promptText.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        
         generatedImage = nil
+        
         let numericSeed: UInt32 = UInt32(seed) ?? UInt32.random(in: 1...UInt32.max)
+        
         if let img = await modelManager.generate(
             prompt: promptText,
             negativePrompt: negativePrompt,
@@ -175,80 +196,9 @@ struct CreateView: View {
             guidanceScale: Float(guidanceScale),
             seed: numericSeed
         ) {
-            await MainActor.run { self.generatedImage = img }
-        }
-    }
-}
-
-struct ModelDownloadView: View {
-    @StateObject private var downloadManager = ModelDownloadManager()
-    let onComplete: () -> Void
-    
-    var body: some View {
-        VStack(spacing: 24) {
-            Image(systemName: "icloud.and.arrow.down")
-                .font(.system(size: 60))
-                .foregroundColor(.purple)
-            
-            Text("AI Models Missing")
-                .font(.title2)
-                .bold()
-                .foregroundColor(.black)
-            
-            Text("To use AI features, you need to download the model pack (~2GB). This only needs to be done once.")
-                .multilineTextAlignment(.center)
-                .foregroundColor(.gray)
-                .padding(.horizontal)
-            
-            if downloadManager.isDownloading {
-                VStack {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .padding()
-                    Text(downloadManager.statusMessage)
-                        .foregroundColor(.purple)
-                        .font(.caption)
-                }
-            } else {
-                Button {
-                    downloadManager.startDownload()
-                } label: {
-                    Text("Download Models")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.purple)
-                        .cornerRadius(16)
-                }
-            }
-            
-            if let error = downloadManager.error {
-                Text(error)
-                    .font(.caption)
-                    .foregroundColor(.red)
-                    .multilineTextAlignment(.center)
-            }
-            
-            // Check for completion
-            if downloadManager.statusMessage == "Ready!" {
-                Button {
-                    onComplete()
-                } label: {
-                    Text("Start Creating!")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.green)
-                        .cornerRadius(16)
-                }
+            await MainActor.run {
+                self.generatedImage = img
             }
         }
-        .padding(30)
-        .background(Color.white)
-        .cornerRadius(20)
-        .shadow(radius: 5)
-        .padding()
     }
 }

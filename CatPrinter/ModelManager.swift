@@ -1,6 +1,4 @@
 import Foundation
-import CoreML
-import StableDiffusion
 import UIKit
 import SwiftUI
 
@@ -8,135 +6,87 @@ class ModelManager: ObservableObject {
 
     // UI state — must be marked @MainActor
     @MainActor @Published var isGenerating = false
-    @MainActor @Published var isPipelineReady = false
-    @MainActor @Published var modelMissing = false
     @MainActor @Published var generationProgress: Double = 0
+    
+    // API service (injected)
+    var apiService: ZImageAPIService?
 
-    private var pipeline: StableDiffusionPipeline?
+    // Current generation task (cancellable)
     private var generationTask: Task<UIImage?, Error>?
 
     init() {
-        Task { await load() }
-    }
-    
-    // Call this to retry loading (e.g. after download)
-    func retryLoad() {
-        Task { await load() }
-    }
-
-    // MARK: - LOAD (background, non-main)
-    func load() async {
-        // CHANGED: Load from Documents directory "compiled" folder
-        // This allows models to be downloaded/updated post-install.
-        let docURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let modelURL = docURL.appendingPathComponent("compiled")
-
-        guard FileManager.default.fileExists(atPath: modelURL.path) else {
-            await MainActor.run {
-                self.modelMissing = true
-                self.isPipelineReady = false
-            }
-            return
-        }
-        
-        // Reset missing flag if found
-        await MainActor.run {
-            self.modelMissing = false
-        }
-
-        do {
-            let config = MLModelConfiguration()
-            config.computeUnits = .cpuAndNeuralEngine
-            
-            // Load heavy pipeline OFF main thread
-            let loadedPipeline = try await Task.detached {
-                try StableDiffusionPipeline(
-                    resourcesAt: modelURL,
-                    controlNet: [],
-                    configuration: config,
-                    reduceMemory: true
-                )
-            }.value
-
-            // Only assignment must happen on main thread
-            await MainActor.run {
-                self.pipeline = loadedPipeline
-                self.isPipelineReady = true
-                print("✅ Pipeline loaded")
-            }
-
-        } catch {
-            print("❌ Pipeline load failed:", error.localizedDescription)
-            // Could set an error state here too
-        }
+        // API-only mode, no local models
     }
 
     // MARK: - CANCEL
     func cancelGeneration() {
+        // Cancel any running generation task and reset UI state
         generationTask?.cancel()
-        Task { @MainActor in isGenerating = false }
+        generationTask = nil
+        Task { @MainActor in
+            self.isGenerating = false
+            self.generationProgress = 0
+        }
     }
 
-    // MARK: - GENERATE (runs off main thread)
+    // MARK: - GENERATE (API-only)
     func generate(prompt: String, negativePrompt: String, stepCount: Int, guidanceScale: Float, seed: UInt32) async -> UIImage? {
+        return await generateViaAPI(
+            prompt: prompt,
+            negativePrompt: negativePrompt,
+            stepCount: stepCount,
+            seed: seed
+        )
+    }
 
-        guard let pipeline else {
-            print("❌ Pipeline not ready")
+    
+    // MARK: - API GENERATION
+    private func generateViaAPI(prompt: String, negativePrompt: String, stepCount: Int, seed: UInt32) async -> UIImage? {
+        guard let apiService = apiService, apiService.isConfigured else {
+            print("❌ API service not configured")
             return nil
         }
-
-        // Cancel object
-        generationTask?.cancel()
-
+        
         // Update UI state
         await MainActor.run { isGenerating = true }
 
-        // Create full pipeline configuration
-        var cfg = StableDiffusionPipeline.Configuration(prompt: prompt)
-        cfg.seed = seed
-        cfg.stepCount = stepCount
-        cfg.guidanceScale = guidanceScale
-        cfg.negativePrompt = negativePrompt
-        cfg.schedulerType = .pndmScheduler
-        cfg.imageCount = 1
-        cfg.useDenoisedIntermediates = false
-
-        // DETACHED = NOT tied to main actor
-        generationTask = Task.detached(priority: .userInitiated) { [weak self] in
+        // Create a cancellable task for the generation
+        generationTask = Task(priority: .userInitiated) { [weak self] in
             guard let self else { return nil }
-
-            do {
-                let outputs = try pipeline.generateImages(
-                    configuration: cfg,
-                    progressHandler: { progress in
-                        Task { @MainActor in
-                            self.generationProgress = Double(progress.step) / Double(progress.stepCount)
-                        }
-                        return Task.isCancelled == false
+            // Combine prompt with negative prompt
+            let fullPrompt = negativePrompt.isEmpty ? prompt : "\(prompt). Negative: \(negativePrompt)"
+            return try await apiService.generateWithPolling(
+                prompt: fullPrompt,
+                width: 512,
+                height: 512,
+                steps: 9,
+                seed: Int(seed),
+                progressCallback: { progress in
+                    Task { @MainActor in
+                        self.generationProgress = Double(progress) / 100.0
                     }
-                )
-
-                if Task.isCancelled { return nil }
-                guard let cg = outputs.first else { return nil }
-
-                return UIImage(cgImage: cg!)
-
-            } catch is CancellationError {
-                print("🛑 Cancelled")
-                return nil
-
-            } catch {
-                print("❌ Error:", error.localizedDescription)
-                return nil
-            }
+                }
+            )
         }
 
-        let img = try? await generationTask?.value
-
-        await MainActor.run { isGenerating = false }
-
-        return img
+        do {
+            let image = try await generationTask?.value
+            await MainActor.run { isGenerating = false }
+            generationTask = nil
+            return image
+        } catch is CancellationError {
+            // Task was cancelled by user
+            await MainActor.run { isGenerating = false }
+            generationTask = nil
+            return nil
+        } catch {
+            print("❌ API generation failed:", error.localizedDescription)
+            await MainActor.run { isGenerating = false }
+            generationTask = nil
+            return nil
+        }
     }
+    
     // MARK: - GENERATE INPAINT
     func generateInpaint(
         prompt: String,
@@ -147,198 +97,188 @@ class ModelManager: ObservableObject {
         guidanceScale: Float,
         seed: UInt32
     ) async -> UIImage? {
-
-        guard let pipeline else { return nil }
-
-        generationTask?.cancel()
-        await MainActor.run { isGenerating = true }
-
-        var cfg = StableDiffusionPipeline.Configuration(prompt: prompt)
-        cfg.seed = seed
-        cfg.stepCount = stepCount
-        cfg.guidanceScale = guidanceScale
-        cfg.negativePrompt = negativePrompt
-        cfg.imageCount = 1
-        cfg.schedulerType = .pndmScheduler // Or whatever plays nice with inpainting
-        
-        // Resize original and mask to 512×512 opaque RGB
-        let targetSize = CGSize(width: 512, height: 512)
-        
-        guard let resizedOriginal = resizeImage(originalImage, targetSize: targetSize),
-              let cgOriginal = resizedOriginal.cgImage else {
-            print("❌ Inpaint Error: could not resize original image")
-            await MainActor.run { isGenerating = false }
-            return nil
-        }
-        cfg.startingImage = cgOriginal
-        cfg.strength = 0.8   // high strength for effective inpainting
-        
-        // Store the resized mask for later compositing
-        let resizedMask = resizeImage(maskImage, targetSize: targetSize) ?? maskImage
-
-        generationTask = Task.detached(priority: .userInitiated) { [weak self] in
-            guard let self else { return nil }
-            do {
-                let outputs = try pipeline.generateImages(
-                    configuration: cfg,
-                    progressHandler: { progress in
-                        Task { @MainActor in
-                            self.generationProgress = Double(progress.step) / Double(progress.stepCount)
-                        }
-                        return Task.isCancelled == false
-                    }
-                )
-                if Task.isCancelled { return nil }
-                
-                guard let generatedCG = outputs.first.flatMap({ $0 }) else { return nil }
-                let generatedImage = UIImage(cgImage: generatedCG)
-                
-                // MANUAL COMPOSITION: Blend Generated over Original using Mask
-                // Use the resized mask we prepared earlier
-                return self.composite(original: resizedOriginal, generated: generatedImage, mask: resizedMask)
-                
-            } catch {
-                print("❌ Inpaint Error:", error.localizedDescription)
-                return nil
-            }
-        }
-
-        let img = try? await generationTask?.value
-        await MainActor.run { isGenerating = false }
-        return img
+        // API doesn't support inpainting yet
+        // For now, just do text-to-image generation
+        print("⚠️ Inpainting not supported via API, using text-to-image")
+        return await generateViaAPI(
+            prompt: prompt,
+            negativePrompt: negativePrompt,
+            stepCount: stepCount,
+            seed: seed
+        )
     }
     
-    private func composite(original: UIImage, generated: UIImage, mask: UIImage) -> UIImage? {
-        // Ensure all are same size/scale
-        let size = original.size
-        UIGraphicsBeginImageContextWithOptions(size, false, original.scale)
-        guard let ctx = UIGraphicsGetCurrentContext() else { return nil }
-        
-        // 1. Draw Original
-        original.draw(in: CGRect(origin: .zero, size: size))
-        
-        // 2. Clip to Mask
-        // Mask: White keeps, Black cuts (or vice versa depending on CG behavior).
-        // CGContextClipToMask: "The mask map is treated as an alpha mask"
-        // If our mask is grayscale, we might need to be careful.
-        // Let's rely on standard masking:
-        // We want to draw 'generated' ONLY where mask is WHITE.
-        
-        if let cgMask = mask.cgImage {
-            // Unflip coords for CG
-            ctx.scaleBy(x: 1.0, y: -1.0)
-            ctx.translateBy(x: 0, y: -size.height)
-            
-            // Define clipping rect (full size)
-            let rect = CGRect(origin: .zero, size: size)
-            
-            // Masking in CG: "The result of the masking operation is the intersection of the mask and the drawing."
-            // CGContextClipToMask expects a mask where the opaque parts are visible?
-            ctx.clip(to: rect, mask: cgMask)
-            
-            // Draw Generated (flipped back? no, we are already flipped)
-            // generated.draw(in: ...) uses UIKit coords (unflipped inside).
-            // Since we manually flipped CTM, we should draw CGImage directly.
-            if let cgGen = generated.cgImage {
-                ctx.draw(cgGen, in: rect)
-            }
-        }
-        
-        let result = UIGraphicsGetImageFromCurrentImageContext()
-        UIGraphicsEndImageContext()
-        return result
-    }
-    
-    // MARK: - GENERATE STYLE TRANSFER (Img2Img)
+    // MARK: - GENERATE STYLE TRANSFER (simplified to text-to-image)
     func generateStyleTransfer(
         prompt: String,
         negativePrompt: String,
         originalImage: UIImage,
-        strength: Float, // 0.0 to 1.0. Lower = closer to original. Higher = more hallucination.
+        maskImage: UIImage,
         stepCount: Int,
         guidanceScale: Float,
-        seed: UInt32
+        seed: UInt32,
+        strength: Float = 0.8,
+        preserveColor: Bool = false,
+        cfg: Double? = nil
     ) async -> UIImage? {
+        guard let apiService = apiService, apiService.isConfigured else {
+            print("❌ API service not configured")
+            return nil
+        }
 
-        guard let pipeline else { return nil }
-
-        generationTask?.cancel()
+        // Update UI state
         await MainActor.run { isGenerating = true }
 
-        var cfg = StableDiffusionPipeline.Configuration(prompt: prompt)
-        cfg.negativePrompt = negativePrompt
-        cfg.seed = seed
-        cfg.stepCount = stepCount
-        cfg.guidanceScale = guidanceScale
-        cfg.imageCount = 1
-        cfg.schedulerType = .pndmScheduler // Using available scheduler
-        
-        // Resize image to 512×512 opaque RGB for the model
-        if let resized = resizeImage(originalImage, targetSize: CGSize(width: 512, height: 512)),
-           let cgResized = resized.cgImage {
-            cfg.startingImage = cgResized
-            cfg.strength = strength
-        } else {
-            // Fallback: plain white 512×512 image (guarantees correct format)
-            print("⚠️ Style Transfer: Failed to resize image, using white placeholder")
-            let placeholder = UIGraphicsImageRenderer(size: CGSize(width: 512, height: 512)).image { ctx in
-                UIColor.white.setFill()
-                ctx.fill(CGRect(origin: .zero, size: CGSize(width: 512, height: 512)))
-            }
-            if let cgPlaceholder = placeholder.cgImage {
-                cfg.startingImage = cgPlaceholder
-                cfg.strength = strength
-            } else {
-                await MainActor.run { isGenerating = false }
-                return nil
-            }
-        }
+        do {
+            let styleDescription = negativePrompt.isEmpty ? prompt : "\(prompt). Avoid: \(negativePrompt)"
 
-        generationTask = Task.detached(priority: .userInitiated) { [weak self] in
-            guard let self else { return nil }
-            do {
-                let outputs = try pipeline.generateImages(
-                    configuration: cfg,
-                    progressHandler: { progress in
-                        Task { @MainActor in
-                            self.generationProgress = Double(progress.step) / Double(progress.stepCount)
-                        }
-                        return Task.isCancelled == false
+            let generated = try await apiService.styleTransferWithPolling(
+                contentImage: originalImage,
+                styleDescription: styleDescription,
+                strength: Double(strength),
+                preserveColor: preserveColor,
+                outputWidth: 512,
+                outputHeight: 512,
+                promptOverride: prompt,
+                steps: 9,
+                cfg: cfg,
+                progressCallback: { progress in
+                    Task { @MainActor in
+                        self.generationProgress = Double(progress) / 100.0
                     }
-                )
-                if Task.isCancelled { return nil }
-                return outputs.first.flatMap { UIImage(cgImage: $0!) }
-            } catch {
-                print("❌ Style Transfer Error:", error.localizedDescription)
-                return nil
-            }
-        }
+                }
+            )
 
-        let img = try? await generationTask?.value
-        await MainActor.run { isGenerating = false }
-        return img
+            // Normalize orientation to avoid rotated results
+            let normOriginal = originalImage.normalizedImage()
+            let normMask = maskImage.normalizedImage()
+
+            // Resize generated to match original for compositing
+            let resizedGenerated = resizeImage(generated, targetSize: normOriginal.size) ?? generated
+
+            let composed = composite(original: normOriginal, generated: resizedGenerated, mask: normMask)
+
+            await MainActor.run { isGenerating = false }
+            return composed
+
+        } catch {
+            print("❌ Style transfer (masked) failed:", error.localizedDescription)
+            await MainActor.run { isGenerating = false }
+            return nil
+        }
     }
     
-    // MARK: - Helper: Resize Image (opaque RGB)
+    // MARK: - GENERATE STYLE TRANSFER (Img2Img overload)
+    func generateStyleTransfer(
+        prompt: String,
+        negativePrompt: String,
+        originalImage: UIImage,
+        strength: Float,
+        stepCount: Int,
+        seed: UInt32,
+        preserveColor: Bool = false,
+        cfg: Double? = nil
+    ) async -> UIImage? {
+        guard let apiService = apiService, apiService.isConfigured else {
+            print("❌ API service not configured")
+            return nil
+        }
+        
+        // Update UI state
+        await MainActor.run { isGenerating = true }
+        
+        // Cancellable task for img2img style transfer
+        await MainActor.run { isGenerating = true }
+        generationTask = Task(priority: .userInitiated) { [weak self] in
+            guard let self else { return nil }
+            do {
+                // Combine prompt with negative prompt for style description
+                let styleDescription = negativePrompt.isEmpty ? prompt : "\(prompt). Avoid: \(negativePrompt)"
+                
+                let image = try await apiService.styleTransferWithPolling(
+                    contentImage: originalImage,
+                    styleDescription: styleDescription,
+                    strength: Double(strength),
+                    preserveColor: preserveColor,
+                    outputWidth: 512,
+                    outputHeight: 512,
+                    promptOverride: prompt,
+                    steps: 9,
+                    cfg: cfg,
+                    progressCallback: { progress in
+                        Task { @MainActor in
+                            self.generationProgress = Double(progress) / 100.0
+                        }
+                    }
+                )
+                return image
+            } catch {
+                if Task.isCancelled { return nil }
+                throw error
+            }
+        }
+
+        do {
+            let image = try await generationTask?.value
+            await MainActor.run { isGenerating = false }
+            generationTask = nil
+            return image
+        } catch is CancellationError {
+            await MainActor.run { isGenerating = false }
+            generationTask = nil
+            return nil
+        } catch {
+            print("❌ Style transfer failed:", error.localizedDescription)
+            await MainActor.run { isGenerating = false }
+            generationTask = nil
+            return nil
+        }
+    }
+
+    // MARK: - Helpers
+    // Resize image to target size (opaque RGB)
     private func resizeImage(_ image: UIImage, targetSize: CGSize) -> UIImage? {
-        // Ensure we render without alpha to avoid encoder issues
         let format = UIGraphicsImageRendererFormat.default()
-        format.opaque = true // no alpha channel
+        format.opaque = true
         format.scale = 1.0
         let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
         return renderer.image { _ in
-            // Fill background with white
             UIColor.white.setFill()
             UIBezierPath(rect: CGRect(origin: .zero, size: targetSize)).fill()
-            // Compute scaling to fill target size (aspect fill)
+            // Aspect fill
             let widthRatio = targetSize.width / image.size.width
             let heightRatio = targetSize.height / image.size.height
             let scaleFactor = max(widthRatio, heightRatio)
             let scaledSize = CGSize(width: image.size.width * scaleFactor, height: image.size.height * scaleFactor)
-            // Center the scaled image
             let origin = CGPoint(x: (targetSize.width - scaledSize.width) / 2,
                                  y: (targetSize.height - scaledSize.height) / 2)
             image.draw(in: CGRect(origin: origin, size: scaledSize))
         }
+    }
+
+    // Composite generated image over original using mask (mask white keeps generated)
+    private func composite(original: UIImage, generated: UIImage, mask: UIImage) -> UIImage? {
+        let size = original.size
+        UIGraphicsBeginImageContextWithOptions(size, false, original.scale)
+        guard let ctx = UIGraphicsGetCurrentContext() else { return nil }
+
+        // 1. Draw original
+        original.draw(in: CGRect(origin: .zero, size: size))
+
+        // 2. Clip to mask (mask white keeps generated)
+        if let cgMask = mask.cgImage, let cgGen = generated.cgImage {
+            ctx.saveGState()
+            // Flip context for CG coordinate system
+            ctx.scaleBy(x: 1.0, y: -1.0)
+            ctx.translateBy(x: 0, y: -size.height)
+            let rect = CGRect(origin: .zero, size: size)
+            ctx.clip(to: rect, mask: cgMask)
+            ctx.draw(cgGen, in: rect)
+            ctx.restoreGState()
+        }
+
+        let result = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return result
     }
 }

@@ -30,11 +30,13 @@ struct StyleTransferView: View {
     @State private var negativePrompt: String = "blurry, low quality, distorted, ugly"
     @State private var showNegativePrompt = false
     
-    @State private var steps: Double = 35
-    @State private var guidance: Double = 7.5
-    @State private var strength: Double = 0.65
+    @State private var guidance: Double = 0.55
+    // Strength is a 0.0 - 1.0 value per zimage API
+    @State private var strength: Double = 0.8
     @State private var seed: String = ""
-    @State private var preserveFaces: Bool = true
+    @State private var preserveColor: Bool = false
+    @State private var showSaveResult: Bool = false
+    @State private var saveResultMessage: String = ""
     
     @State private var showingEditSheet = false
     @State private var editingStyle: StyleTemplate?
@@ -56,16 +58,10 @@ struct StyleTransferView: View {
     // MARK: - BODY
     var body: some View {
         ZStack {
-AppDesignSystem.Colors.backgroundLight
-            .ignoresSafeArea()
+            AppDesignSystem.Colors.backgroundLight
+                .ignoresSafeArea()
         
-        if modelManager.modelMissing {
-            ModelDownloadView {
-                modelManager.retryLoad()
-            }
-        } else {
             ScrollView {
-                
                 // MARK: - IMAGE PICKER
                 if let img = selectedImage {
                     HStack(spacing: 12) {
@@ -93,14 +89,7 @@ AppDesignSystem.Colors.backgroundLight
                                 .overlay(Text("?").font(.largeTitle))
                         }
                     }
-                    .padding()
 
-                    // Preserve Faces Toggle
-                    Toggle(isOn: $preserveFaces) {
-                        Label("Preserve faces (auto mask)", systemImage: "face.smiling")
-                    }
-                    .tint(themeColor)
-                    .padding(.horizontal)
                     
                     Button("Change Image") {
                         selectedItem = nil
@@ -108,7 +97,6 @@ AppDesignSystem.Colors.backgroundLight
                         generatedImage = nil
                     }
                     .buttonStyle(.bordered)
-                    
                 } else {
                     PhotosPicker(selection: $selectedItem, matching: .images) {
                         VStack {
@@ -197,17 +185,6 @@ AppDesignSystem.Colors.backgroundLight
                         // Settings
                         Text("Settings").font(.subheadline).bold().foregroundColor(.gray)
                         
-                        // Steps
-                        HStack {
-                            Text("Steps")
-                            .foregroundColor(themeColor)
-                            Spacer()
-                            Text("\(Int(steps))")
-                                .foregroundColor(.gray)
-                        }
-                        Slider(value: $steps, in: 10...50, step: 1)
-                            .tint(themeColor)
-                        
                         // Guidance
                         HStack {
                             Text("Guidance").foregroundColor(themeColor)
@@ -215,22 +192,28 @@ AppDesignSystem.Colors.backgroundLight
                             Text(String(format: "%.1f", guidance))
                                 .foregroundColor(.gray)
                         }
-                        Slider(value: $guidance, in: 1...15, step: 0.5)
+                        Slider(value: $guidance, in: 0.0...10, step: 0.01)
                             .tint(themeColor)
                         
-                        // Strength
+                        // Strength (0.0 - 1.0)
                         HStack {
                             Text("Style Strength").foregroundColor(themeColor)
                             Spacer()
                             Text(String(format: "%.2f", strength))
                                 .foregroundColor(.gray)
                         }
-                        Slider(value: $strength, in: 0.3...0.9, step: 0.05)
+                        Slider(value: $strength, in: 0.0...1.0, step: 0.01)
                             .tint(themeColor)
                         Text("Higher = more style, Lower = preserve original")
                             .font(.caption2)
                             .foregroundColor(.gray)
                         
+                        // Preserve Color
+                        Toggle(isOn: $preserveColor) {
+                            Text("Preserve Colors")
+                        }
+                        .tint(themeColor)
+
                         // Seed
                         HStack {
                             Text("Seed (Random if empty)")
@@ -249,8 +232,20 @@ AppDesignSystem.Colors.backgroundLight
                         
                         // GENERATE BUTTON
                         if modelManager.isGenerating {
-                            ProgressView("Transferring Style...", value: modelManager.generationProgress, total: 1.0)
-                                .padding()
+                            VStack(spacing: 12) {
+                                ProgressView(value: modelManager.generationProgress, total: 1.0)
+                                    .padding(.horizontal)
+                                    .tint(.purple)
+
+                                Text("Transferring Style: \(Int(modelManager.generationProgress * 100))%")
+                                    .font(.caption)
+                                    .foregroundColor(.purple)
+
+                                Button("Cancel") {
+                                    modelManager.cancelGeneration()
+                                }
+                                .foregroundColor(.red)
+                            }
                         } else {
                             Button {
                                 runStyleTransfer()
@@ -279,6 +274,27 @@ AppDesignSystem.Colors.backgroundLight
                                     .foregroundColor(.white)
                                     .cornerRadius(12)
                             }
+                            
+                            Button {
+                                let saver = PhotoSaver()
+                                saver.writeToPhotoLibrary(res) { result in
+                                    switch result {
+                                    case .success:
+                                        saveResultMessage = "Saved to Photos"
+                                    case .failure(let err):
+                                        saveResultMessage = "Save failed: \(err.localizedDescription)"
+                                    }
+                                    showSaveResult = true
+                                }
+                            } label: {
+                                Label("Save", systemImage: "square.and.arrow.down")
+                                    .font(.subheadline)
+                                    .padding(8)
+                                    .frame(maxWidth: .infinity)
+                                    .background(Color.blue.opacity(0.1))
+                                    .foregroundColor(.blue)
+                                    .cornerRadius(8)
+                            }
                         }
                         
                     }
@@ -302,13 +318,14 @@ AppDesignSystem.Colors.backgroundLight
                     }
                 }
             }
-            
-        }
         }
         .fullScreenCover(isPresented: $showZoomModal) {
             if let img = generatedImage {
                 ZoomImageModal(image: img, isPresented: $showZoomModal)
             }
+        }
+        .alert(saveResultMessage, isPresented: $showSaveResult) {
+            Button("OK", role: .cancel) { }
         }
     }
     
@@ -337,116 +354,19 @@ AppDesignSystem.Colors.backgroundLight
         print("💪 Strength: \(strength)")
         
         Task {
-            if preserveFaces {
-                // Build an inpainting mask that PROTECTS the face: black on face, white elsewhere
-                let boxes = detectFaceBoxes(in: original)
-                let mask = buildPreserveFaceMask(originalSize: original.size, boxes: boxes)
-                if let result = await modelManager.generateInpaint(
-                    prompt: fullPrompt,
-                    negativePrompt: fullNegative,
-                    originalImage: original,
-                    maskImage: mask,
-                    stepCount: Int(steps),
-                    guidanceScale: Float(guidance),
-                    seed: seedValue
-                ) {
-                    await MainActor.run { self.generatedImage = result }
-                }
-            } else {
-                if let result = await modelManager.generateStyleTransfer(
-                    prompt: fullPrompt,
-                    negativePrompt: fullNegative,
-                    originalImage: original,
-                    strength: Float(strength),
-                    stepCount: Int(steps),
-                    guidanceScale: Float(guidance),
-                    seed: seedValue
-                ) {
-                    await MainActor.run { self.generatedImage = result }
-                }
+            if let result = await modelManager.generateStyleTransfer(
+                prompt: fullPrompt,
+                negativePrompt: fullNegative,
+                originalImage: original,
+                strength: Float(strength),
+                stepCount: 9,
+                seed: seedValue,
+                preserveColor: preserveColor,
+                cfg: Double(guidance)
+            ) {
+                await MainActor.run { self.generatedImage = result }
             }
         }
-    }
-
-    // MARK: - Face Detection & Compositing
-    private func preserveFacesByCompositingFace(original: UIImage, stylized: UIImage) -> UIImage {
-        guard let cgOrig = original.cgImage, let cgStylized = stylized.cgImage else { return stylized }
-        let size = CGSize(width: cgStylized.width, height: cgStylized.height)
-
-        // Detect faces on the original image
-        let faceBoxes = detectFaceBoxes(in: original)
-        if faceBoxes.isEmpty { return stylized }
-
-        // Prepare context
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: stylized.size.width, height: stylized.size.height))
-        return renderer.image { ctx in
-            // Draw stylized image first
-            UIImage(cgImage: cgStylized, scale: stylized.scale, orientation: stylized.imageOrientation)
-                .draw(in: CGRect(origin: .zero, size: stylized.size))
-
-            // Composite original face regions on top
-            for box in faceBoxes {
-                // Convert normalized Vision bbox to pixel coordinates of stylized image
-                let rect = convertVisionRect(box, from: original.size, to: stylized.size)
-                // Crop original image to rect
-                if let cropped = crop(image: original, to: rect) {
-                    cropped.draw(in: rect)
-                }
-            }
-        }
-    }
-
-    private func detectFaceBoxes(in image: UIImage) -> [CGRect] {
-        guard let cgImage = image.cgImage else { return [] }
-        let request = VNDetectFaceRectanglesRequest()
-        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-        do {
-            try handler.perform([request])
-            let observations = request.results as? [VNFaceObservation] ?? []
-            return observations.map { $0.boundingBox } // normalized coordinates
-        } catch {
-            return []
-        }
-    }
-
-    // Build a mask that protects faces (black face regions, white elsewhere)
-    private func buildPreserveFaceMask(originalSize: CGSize, boxes: [CGRect]) -> UIImage {
-        let renderer = UIGraphicsImageRenderer(size: originalSize)
-        return renderer.image { _ in
-            // Start with WHITE everywhere: areas to be stylized
-            UIColor.white.setFill()
-            UIBezierPath(rect: CGRect(origin: .zero, size: originalSize)).fill()
-
-            // Paint BLACK over each face box to protect it from stylization
-            UIColor.black.setFill()
-            for box in boxes {
-                let rect = convertVisionRect(box, from: originalSize, to: originalSize)
-                // Slightly expand rect to include hairline/beard margin
-                let expanded = rect.insetBy(dx: -rect.width * 0.08, dy: -rect.height * 0.08)
-                UIBezierPath(roundedRect: expanded, cornerRadius: min(expanded.width, expanded.height) * 0.15).fill()
-            }
-        }
-    }
-
-    private func convertVisionRect(_ rect: CGRect, from srcSize: CGSize, to dstSize: CGSize) -> CGRect {
-        // VN boundingBox is normalized with origin at bottom-left; UIKit has origin at top-left
-        let x = rect.origin.x * dstSize.width
-        let y = (1 - rect.origin.y - rect.size.height) * dstSize.height
-        let w = rect.size.width * dstSize.width
-        let h = rect.size.height * dstSize.height
-        return CGRect(x: x, y: y, width: w, height: h)
-    }
-
-    private func crop(image: UIImage, to rect: CGRect) -> UIImage? {
-        guard let cg = image.cgImage else { return nil }
-        let scaleX = CGFloat(cg.width) / image.size.width
-        let scaleY = CGFloat(cg.height) / image.size.height
-        let scaledRect = CGRect(x: rect.origin.x * scaleX,
-                                y: rect.origin.y * scaleY,
-                                width: rect.size.width * scaleX,
-                                height: rect.size.height * scaleY)
-        guard let cropped = cg.cropping(to: scaledRect) else { return nil }
-        return UIImage(cgImage: cropped, scale: image.scale, orientation: image.imageOrientation)
     }
 }
 

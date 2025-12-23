@@ -132,6 +132,7 @@ struct TemplatesView: View {
                     .padding()
                 }
             }
+            }
         }
         .background(AppDesignSystem.Colors.backgroundLight.ignoresSafeArea())
         .navigationTitle("Templates")
@@ -150,10 +151,7 @@ struct TemplatesView: View {
                         }
                     }
                 }
-                .padding()
             }
-            .navigationTitle("Templates")
-            .background(AppDesignSystem.Colors.backgroundLight.ignoresSafeArea())
         }
     }
     

@@ -15,22 +15,17 @@ struct InpaintingView: View {
     @State private var showZoomModal = false
     @State private var negativePrompt: String = "blurry, low quality, distorted"
     @State private var showNegativePrompt: Bool = false
-    @State private var steps: Double = 35
     @State private var guidance: Double = 7.5
+    @State private var showSaveResult: Bool = false
+    @State private var saveResultMessage: String = ""
     @State private var seed: String = ""
     
     
     var body: some View {
         ZStack {
             AppDesignSystem.Colors.backgroundLight
-            .ignoresSafeArea()
+                .ignoresSafeArea()
         
-        if modelManager.modelMissing {
-            ModelDownloadView {
-                modelManager.retryLoad()
-            }
-        }
-        else {
             ScrollView {
                 VStack(spacing: 20) {
                     // --- 1. Image Picker ---
@@ -181,14 +176,6 @@ struct InpaintingView: View {
                                     .padding(.top, 8)
                                 
                                 VStack(spacing: 16) {
-                                    // Steps
-                                    HStack {
-                                        Text("Steps")
-                                        Spacer()
-                                        Text("\(Int(steps))")
-                                    }
-                                    Slider(value: $steps, in: 10...50, step: 1)
-                                    
                                     // Guidance
                                     HStack {
                                         Text("Guidance")
@@ -233,7 +220,22 @@ struct InpaintingView: View {
                             }
                             
                             // Print Button
-                            if let res = generatedImage {
+                            if modelManager.isGenerating {
+                                VStack(spacing: 12) {
+                                    ProgressView("Generating Magic...", value: modelManager.generationProgress, total: 1)
+                                        .padding(.horizontal)
+                                        .tint(.purple)
+
+                                    Text("Generating: \(Int(modelManager.generationProgress * 100))%")
+                                        .font(.caption)
+                                        .foregroundColor(.purple)
+
+                                    Button("Cancel") {
+                                        modelManager.cancelGeneration()
+                                    }
+                                    .foregroundColor(.red)
+                                }
+                            } else if let res = generatedImage {
                                 Button {
                                     onSendToPrint(res)
                                 } label: {
@@ -243,6 +245,28 @@ struct InpaintingView: View {
                                         .background(Color.green)
                                         .foregroundColor(.white)
                                         .cornerRadius(12)
+                                }
+                                Button {
+                                    let saver = PhotoSaver()
+                                    saver.writeToPhotoLibrary(res) { result in
+                                        DispatchQueue.main.async {
+                                            switch result {
+                                            case .success:
+                                                saveResultMessage = "Saved to Photos"
+                                            case .failure(let err):
+                                                saveResultMessage = "Save failed: \(err.localizedDescription)"
+                                            }
+                                            showSaveResult = true
+                                        }
+                                    }
+                                } label: {
+                                    Label("Save", systemImage: "square.and.arrow.down")
+                                        .font(.subheadline)
+                                        .padding(8)
+                                        .frame(maxWidth: .infinity)
+                                        .background(Color.blue.opacity(0.1))
+                                        .foregroundColor(.blue)
+                                        .cornerRadius(8)
                                 }
                             }
                         }
@@ -267,11 +291,13 @@ struct InpaintingView: View {
                 }
             }
         }
-        }
         .fullScreenCover(isPresented: $showZoomModal) {
             if let img = generatedImage {
                 ZoomImageModal(image: img, isPresented: $showZoomModal)
             }
+        }
+        .alert(saveResultMessage, isPresented: $showSaveResult) {
+            Button("OK", role: .cancel) { }
         }
     }
     
@@ -288,7 +314,7 @@ struct InpaintingView: View {
                 negativePrompt: negativePrompt,
                 originalImage: original,
                 maskImage: maskImage,
-                stepCount: Int(steps),
+                stepCount: 9,
                 guidanceScale: Float(guidance),
                 seed: seedValue
             ) {

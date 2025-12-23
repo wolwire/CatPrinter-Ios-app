@@ -5,30 +5,40 @@ struct CreateView: View {
     let onSendToPrint: (UIImage) -> Void
 
     @EnvironmentObject var modelManager: ModelManager
+    @EnvironmentObject var apiService: ZImageAPIService
 
     // MARK: - User Inputs
     @State private var promptText = "A cute pastel cat, kawaii style"
     @State private var negativePrompt = ""
-    @State private var stepCount: Double = 35
     @State private var guidanceScale: Double = 7.5
     @State private var seed: String = ""
     @State private var isNegativePromptExpanded = false
 
     @State private var generatedImage: UIImage?
     @State private var showZoomModal = false
+    @State private var showSaveResult: Bool = false
+    @State private var saveResultMessage: String = ""
     
     var body: some View {
         ZStack {
             AppDesignSystem.Colors.backgroundLight
                 .ignoresSafeArea()
             
-            if modelManager.modelMissing {
-                ModelDownloadView {
-                    modelManager.retryLoad()
-                }
-            } else {
-                ScrollView {
-                    VStack(spacing: 20) {
+            ScrollView {
+                VStack(spacing: 20) {
+                    
+                    // ------------------------
+                    // API STATUS INDICATOR
+                    // ------------------------
+                    HStack {
+                        Image(systemName: "cloud.fill")
+                            .foregroundColor(apiService.isConfigured ? .green : .orange)
+                        Text(apiService.isConfigured ? "Cloud Generation" : "API Not Configured")
+                            .font(.caption)
+                            .foregroundColor(apiService.isConfigured ? .green : .orange)
+                        Spacer()
+                    }
+                    .padding(.horizontal)
                         
                         // ------------------------
                         // PROMPT CARD
@@ -68,15 +78,6 @@ struct CreateView: View {
                             VStack(spacing: AppDesignSystem.Spacing.lg) {
                                 
                                 AppSettingsSlider(
-                                    value: $stepCount,
-                                    in: 10...70,
-                                    step: 1,
-                                    label: "Steps",
-                                    color: AppDesignSystem.Colors.pastelPurple,
-                                    valueFormatter: { "\(Int($0))" }
-                                )
-                                
-                                AppSettingsSlider(
                                     value: $guidanceScale,
                                     in: 1...20,
                                     step: 0.1,
@@ -100,14 +101,19 @@ struct CreateView: View {
                         // GENERATION PROGRESS
                         // ------------------------
                         if modelManager.isGenerating {
-                            VStack {
+                            VStack(spacing: 12) {
                                 ProgressView(value: modelManager.generationProgress, total: 1.0)
                                     .padding(.horizontal)
                                     .tint(.purple)
-                                
+
                                 Text("Generating: \(Int(modelManager.generationProgress * 100))%")
                                     .font(.caption)
                                     .foregroundColor(.purple)
+
+                                Button("Cancel") {
+                                    modelManager.cancelGeneration()
+                                }
+                                .foregroundColor(.red)
                             }
                         }
                         
@@ -129,10 +135,6 @@ struct CreateView: View {
                         }
                         .disabled(modelManager.isGenerating)
                         
-                        if modelManager.isGenerating {
-                            Button("Cancel") { modelManager.cancelGeneration() }
-                                .foregroundColor(.red)
-                        }
                         
                         
                         // ------------------------
@@ -164,6 +166,28 @@ struct CreateView: View {
                                         .background(Color.green.opacity(0.7))
                                         .cornerRadius(16)
                                 }
+                                Button {
+                                    let saver = PhotoSaver()
+                                    saver.writeToPhotoLibrary(img) { result in
+                                        DispatchQueue.main.async {
+                                            switch result {
+                                            case .success:
+                                                saveResultMessage = "Saved to Photos"
+                                            case .failure(let err):
+                                                saveResultMessage = "Save failed: \(err.localizedDescription)"
+                                            }
+                                            showSaveResult = true
+                                        }
+                                    }
+                                } label: {
+                                    Label("Save", systemImage: "square.and.arrow.down")
+                                        .font(.subheadline)
+                                        .padding(8)
+                                        .frame(maxWidth: .infinity)
+                                        .background(Color.blue.opacity(0.1))
+                                        .foregroundColor(.blue)
+                                        .cornerRadius(8)
+                                }
                             }
                             .padding()
                             .background(Color.white)
@@ -176,10 +200,12 @@ struct CreateView: View {
                     .padding()
                 }
                 .onTapGesture { hideKeyboard() }
+                .alert(saveResultMessage, isPresented: $showSaveResult) {
+                    Button("OK", role: .cancel) { }
+                }
             }
         }
-    }
-    
+
     
     // MARK: - Generation Logic
     private func generate() async {
@@ -192,7 +218,7 @@ struct CreateView: View {
         if let img = await modelManager.generate(
             prompt: promptText,
             negativePrompt: negativePrompt,
-            stepCount: Int(stepCount),
+            stepCount: 9,
             guidanceScale: Float(guidanceScale),
             seed: numericSeed
         ) {
@@ -200,5 +226,9 @@ struct CreateView: View {
                 self.generatedImage = img
             }
         }
+    }
+    
+    private func hideKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }

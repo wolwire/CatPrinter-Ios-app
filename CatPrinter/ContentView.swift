@@ -315,9 +315,7 @@ Text("Other")
                 }
 
               case .aiTools:
-                Group {
-                if modelManager.isPipelineReady || modelManager.modelMissing {
-                  CreateView(
+                CreateView(
                   themeColor: Color.blue,
                   onSendToPrint: { img in
                     self.uiImage = img
@@ -325,17 +323,7 @@ Text("Other")
                     path = NavigationPath([WorkflowDestination.print])
                     Task { await generatePreview() }
                   }
-                  )
-                } else {
-                  VStack {
-                  ProgressView().scaleEffect(1.5)
-                  Text("Loading AI model… please wait").foregroundColor(.secondary)
-                  }
-                  .frame(maxWidth: .infinity, maxHeight: .infinity)
-                  .background(Color.gray.opacity(0.1))
-                  .cornerRadius(12)
-                }
-                }
+                )
                 .toolbar {
                   ToolbarItem(placement: .principal) {
                     Text("AI Creation")

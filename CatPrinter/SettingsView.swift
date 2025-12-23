@@ -2,6 +2,9 @@ import SwiftUI
 
 struct SettingsView: View {
   @EnvironmentObject var printer: PrinterManager
+  @EnvironmentObject var modelManager: ModelManager
+  @EnvironmentObject var apiService: ZImageAPIService
+  @State private var showAPIConfig = false
   
   // Theme
   let themeColor = Color(red: 0.9, green: 0.9, blue: 0.95) // Soft Gray-Blue
@@ -25,6 +28,48 @@ struct SettingsView: View {
                           .foregroundColor(themeColor)
                           .opacity(0.5)
                   }
+                  
+                  // API CONFIGURATION CARD
+                  VStack(alignment: .leading, spacing: 16) {
+                      HStack {
+                          Image(systemName: "cloud.fill")
+                              .foregroundColor(.purple)
+                          Text("Cloud Generation")
+                              .font(.headline)
+                              .foregroundColor(.black)
+                      }
+                      
+                      Divider()
+                      
+                      VStack(alignment: .leading, spacing: 12) {
+                          Text("This app uses zimage-server API for image generation")
+                              .font(.caption)
+                              .foregroundColor(.gray)
+                          
+                          HStack {
+                              Circle()
+                                  .fill(apiService.isConfigured ? Color.green : Color.orange)
+                                  .frame(width: 8, height: 8)
+                              Text(apiService.isConfigured ? "API Configured" : "API Not Configured")
+                                  .font(.caption)
+                                  .foregroundColor(apiService.isConfigured ? .green : .orange)
+                              Spacer()
+                              Button("Configure") {
+                                  showAPIConfig = true
+                              }
+                              .font(.caption)
+                              .padding(.horizontal, 12)
+                              .padding(.vertical, 6)
+                              .background(Color.purple.opacity(0.1))
+                              .foregroundColor(.purple)
+                              .cornerRadius(8)
+                          }
+                      }
+                  }
+                  .padding()
+                  .background(Color.white)
+                  .cornerRadius(20)
+                  .shadow(color: Color.black.opacity(0.05), radius: 4)
                   
                   // PRINTER CARD
                   VStack(alignment: .leading, spacing: 16) {
@@ -110,5 +155,19 @@ struct SettingsView: View {
           .navigationTitle("Settings")
           .navigationBarTitleDisplayMode(.large)
           .background(AppDesignSystem.Colors.backgroundLight.ignoresSafeArea())
+          .sheet(isPresented: $showAPIConfig) {
+              NavigationView {
+                  APIConfigView()
+                      .navigationBarTitleDisplayMode(.inline)
+                      .toolbar {
+                          ToolbarItem(placement: .navigationBarTrailing) {
+                              Button("Done") {
+                                  showAPIConfig = false
+                              }
+                          }
+                      }
+              }
+          }
+      }
   }
 }
